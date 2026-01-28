@@ -1,0 +1,38 @@
+# Load module
+Import-Module PowerShellPDF
+
+# Domain and base OU
+$domain = (Get-ADDomain).DNSRoot
+$baseOU = (Get-ADDomain).DistinguishedName
+
+# Output paths
+$outputTxt = "$env:C:\Users\administrator.CLEANMAXSOLAR\Downloads\OU_Hierarchy.txt"
+$outputPdf = "$env:C:\Users\administrator.CLEANMAXSOLAR\Downloads\OU_Hierarchy.pdf"
+
+# OU hierarchy logic
+$global:ouTree = @()
+$global:ouTree += "$domain (Root Domain)"
+
+function Get-OUHierarchy {
+    param (
+        [string]$BaseOU,
+        [int]$Level = 1
+    )
+
+    $indent = " " * ($Level * 4)
+    $ous = Get-ADOrganizationalUnit -Filter * -SearchBase $BaseOU -SearchScope OneLevel | Sort-Object Name
+
+    foreach ($ou in $ous) {
+        $global:ouTree += "$indent|- $($ou.Name)"
+        Get-OUHierarchy -BaseOU $ou.DistinguishedName -Level ($Level + 1)
+    }
+}
+
+# Run and save as text
+Get-OUHierarchy -BaseOU $baseOU
+$ouTree | Out-File -FilePath $outputTxt -Encoding UTF8
+
+# Convert to PDF
+New-PdfFromText -TextPath $outputTxt -OutputPath $outputPdf
+
+Write-Output " OU hierarchy exported to PDF: $outputPdf"
